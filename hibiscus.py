@@ -5,8 +5,7 @@ import os
 import dropbox
 
 # Initialize Dropbox client
-DROPBOX_TOKEN = st.write("DROPBOX_TOKEN:", st.secrets["DROPBOX_TOKEN"])
-dbx = dropbox.Dropbox(DROPBOX_TOKEN)
+dbx = dropbox.Dropbox(st.secrets.db_credentials.username)
 
 # Function to load the selected file from Dropbox
 def load_data(file_option):
