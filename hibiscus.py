@@ -1,17 +1,11 @@
 import streamlit as st
-from dotenv import load_dotenv
 import pandas as pd
 import json
 import os
 import dropbox
 
-# Load environment variables from .env file
-load_dotenv()
-
 # Initialize Dropbox client
-DROPBOX_TOKEN = os.getenv('DROPBOX_TOKEN')
-if not DROPBOX_TOKEN:
-    st.error("Dropbox access token is not set. Please check your .env file.")
+DROPBOX_TOKEN = st.write("DROPBOX_TOKEN:", st.secrets["DROPBOX_TOKEN"])
 dbx = dropbox.Dropbox(DROPBOX_TOKEN)
 
 # Function to load the selected file from Dropbox
