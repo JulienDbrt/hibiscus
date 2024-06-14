@@ -2,18 +2,22 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import dropbox
+
+# Initialize Dropbox client
+dbx = dropbox.Dropbox('sl.B3KupOmvPC5JtDvO_viFurCBJqGHa-Un2KsjsZu5MTsmGMCYBPUsUCmkZZ5o0oMEhV-TxF-x-XinoVPHmyiIeTSYjawTSg_-FA8a1FgEFGnBn-_zIl384uo-QrWZAIE8ro1wzzoFNtLT')
 
 # Function to load the selected file
 def load_data(file_option):
-    if file_option == 'quanti.csv':
-        return pd.read_csv('quanti.csv')
-    elif file_option == 'quali.csv':
-        return pd.read_csv('quali.csv')
+    _, res = dbx.files_download(f'/{file_option}')
+    data = pd.read_csv(res.content)
+    return data
 
 # Function to save the responses
 def save_responses(user, responses):
     responses_df = pd.DataFrame(responses, columns=['Id', 'Response', 'User'])
-    responses_df.to_csv(f'{user}_responses.csv', index=False)
+    file_path = f'/{user}_responses.csv'
+    dbx.files_upload(responses_df.to_csv(index=False).encode(), file_path, mode=dropbox.files.WriteMode.overwrite)
 
 # Function to save the application state
 def save_state(user):
@@ -21,17 +25,18 @@ def save_state(user):
         'row_index': st.session_state.row_index,
         'responses': st.session_state.responses
     }
-    with open(f'{user}_state.json', 'w') as f:
-        json.dump(state, f)
+    file_path = f'/{user}_state.json'
+    dbx.files_upload(json.dumps(state).encode(), file_path, mode=dropbox.files.WriteMode.overwrite)
 
 # Function to load the application state
 def load_state(user):
-    if os.path.exists(f'{user}_state.json'):
-        with open(f'{user}_state.json', 'r') as f:
-            state = json.load(f)
-            st.session_state.row_index = state['row_index']
-            st.session_state.responses = state['responses']
-    else:
+    file_path = f'/{user}_state.json'
+    try:
+        _, res = dbx.files_download(file_path)
+        state = json.loads(res.content)
+        st.session_state.row_index = state['row_index']
+        st.session_state.responses = state['responses']
+    except dropbox.exceptions.ApiError:
         st.session_state.row_index = 0
         st.session_state.responses = []
 
@@ -76,10 +81,10 @@ else:
         col1, col2 = st.columns(2)
         with col1:
             if st.button('Keep', on_click=handle_response, args=('Keep',)):
-                st.experimental_rerun()
+                st.rerun()
         with col2:
             if st.button('Pass', on_click=handle_response, args=('Pass',)):
-                st.experimental_rerun()
+                st.rerun()
 
         # Save responses when done
         if st.session_state.row_index >= len(data):
