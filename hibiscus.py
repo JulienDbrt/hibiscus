@@ -1,11 +1,13 @@
 import streamlit as st
+from dotenv import load_dotenv
 import pandas as pd
 import json
 import os
 import dropbox
 
 # Initialize Dropbox client
-dbx = dropbox.Dropbox('sl.B3KupOmvPC5JtDvO_viFurCBJqGHa-Un2KsjsZu5MTsmGMCYBPUsUCmkZZ5o0oMEhV-TxF-x-XinoVPHmyiIeTSYjawTSg_-FA8a1FgEFGnBn-_zIl384uo-QrWZAIE8ro1wzzoFNtLT')
+DROPBOX_ACCESS_TOKEN = os.getenv('DROPBOX_TOKEN')
+dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
 # Function to load the selected file
 def load_data(file_option):
