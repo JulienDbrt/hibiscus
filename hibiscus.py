@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import dropbox
+from io import BytesIO
 
 # Initialize Dropbox client
 dbx = dropbox.Dropbox(st.secrets.db_credentials.username)
@@ -12,7 +13,7 @@ def load_data(file_option):
     try:
         # Attempt to load from Dropbox
         _, res = dbx.files_download(f'/{file_option}')
-        data = pd.read_csv(res.content)
+        data = pd.read_csv(BytesIO(res.content))
         return data
     except dropbox.exceptions.AuthError as e:
         st.error(f"Dropbox authentication error: {e}")
