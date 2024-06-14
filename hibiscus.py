@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import json
-import os
 import dropbox
 
 # Initialize Dropbox client
@@ -15,8 +14,23 @@ def load_data(file_option):
         return data
     except dropbox.exceptions.AuthError as e:
         st.error(f"Dropbox authentication error: {e}")
+    except dropbox.exceptions.ApiError as e:
+        if isinstance(e.error, dropbox.files.DownloadError) and e.error.is_path() and e.error.get_path().is_not_found():
+            st.warning(f"The file {file_option} was not found. Creating a new file.")
+            data = pd.DataFrame(columns=['Id.', 'Data'])  # Adjust columns as needed
+            save_data(file_option, data)
+            return data
+        else:
+            st.error(f"Error loading file from Dropbox: {e}")
     except Exception as e:
         st.error(f"Error loading file from Dropbox: {e}")
+
+# Function to save the selected file to Dropbox
+def save_data(file_option, data):
+    try:
+        dbx.files_upload(data.to_csv(index=False).encode(), f'/{file_option}', mode=dropbox.files.WriteMode.overwrite)
+    except Exception as e:
+        st.error(f"Error saving file to Dropbox: {e}")
 
 # Function to save the responses to Dropbox
 def save_responses(user, responses):
@@ -47,9 +61,13 @@ def load_state(user):
         state = json.loads(res.content)
         st.session_state.row_index = state['row_index']
         st.session_state.responses = state['responses']
-    except dropbox.exceptions.ApiError:
-        st.session_state.row_index = 0
-        st.session_state.responses = []
+    except dropbox.exceptions.ApiError as e:
+        if isinstance(e.error, dropbox.files.DownloadError) and e.error.is_path() and e.error.get_path().is_not_found():
+            st.session_state.row_index = 0
+            st.session_state.responses = []
+            save_state(user)  # Save the initial state
+        else:
+            st.error(f"Error loading state from Dropbox: {e}")
     except Exception as e:
         st.error(f"Error loading state from Dropbox: {e}")
 
