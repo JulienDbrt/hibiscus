@@ -11,7 +11,7 @@ import tempfile
 def authenticate_drive():
     gauth = GoogleAuth()
     # Use environment variable to store the credentials JSON
-    creds_json = os.getenv('GOOGLE_DRIVE_CREDENTIALS')
+    creds_json = st.secrets.db_credentials.username
     if creds_json:
         with tempfile.NamedTemporaryFile(delete=False) as temp_creds:
             temp_creds.write(creds_json.encode())
