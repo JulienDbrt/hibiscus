@@ -15,14 +15,26 @@ load_dotenv()
 def authenticate_drive():
     gauth = GoogleAuth()
     creds_json = st.secrets.db_credentials.username
+
     if creds_json:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_creds:
-            temp_creds.write(creds_json.encode())
-            temp_creds.flush()
-            gauth.LoadCredentialsFile(temp_creds.name)
-            os.unlink(temp_creds.name)
+        try:
+            with tempfile.NamedTemporaryFile(delete=False) as temp_creds:
+                temp_creds.write(creds_json.encode())
+                temp_creds.flush()
+                gauth.LoadCredentialsFile(temp_creds.name)
+                os.unlink(temp_creds.name)
+        except KeyError as e:
+            st.error(f"KeyError: {e}")
+            st.stop()
+        except json.JSONDecodeError as e:
+            st.error(f"JSONDecodeError: Invalid JSON format in credentials. {e}")
+            st.stop()
+        except Exception as e:
+            st.error(f"Error loading credentials: {e}")
+            st.stop()
     else:
         gauth.LocalWebserverAuth()
+    
     drive = GoogleDrive(gauth)
     return drive
 
