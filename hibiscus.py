@@ -2,68 +2,89 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-import dropbox
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
 from io import BytesIO
 
-# Initialize Dropbox client
-dbx = dropbox.Dropbox(st.secrets.db_credentials.username)
+# Authenticate and create the PyDrive client
+def authenticate_drive():
+    gauth = GoogleAuth()
+    gauth.DEFAULT_SETTINGS['client_config_file'] = "credentials.json"
+    gauth.LocalWebserverAuth()
+    drive = GoogleDrive(gauth)
+    return drive
 
-# Function to load the selected file from Dropbox or local
+drive = authenticate_drive()
+
+# Function to load the selected file from Google Drive or local
 def load_data(file_option):
     try:
-        # Attempt to load from Dropbox
-        _, res = dbx.files_download(f'/{file_option}')
-        data = pd.read_csv(BytesIO(res.content))
-        return data
-    except dropbox.exceptions.AuthError as e:
-        st.error(f"Dropbox authentication error: {e}")
-    except dropbox.exceptions.ApiError as e:
-        if isinstance(e.error, dropbox.files.DownloadError):
-            st.warning(f"File not found in Dropbox, trying to load from local: {file_option}")
+        # Attempt to load from Google Drive
+        file_list = drive.ListFile({'q': f"title='{file_option}'"}).GetList()
+        if not file_list:
+            st.warning(f"File not found in Google Drive, trying to load from local: {file_option}")
             if os.path.isfile(file_option):
                 data = pd.read_csv(file_option)
                 return data
             else:
                 st.error(f"File {file_option} not found locally either.")
         else:
-            st.error(f"Error loading file from Dropbox: {e}")
+            file_id = file_list[0]['id']
+            file_content = drive.CreateFile({'id': file_id}).GetContentString()
+            data = pd.read_csv(BytesIO(file_content.encode()))
+            return data
     except Exception as e:
         st.error(f"Unexpected error: {e}")
 
-# Function to save the responses to Dropbox
+# Function to save the responses to Google Drive
 def save_responses(user, responses):
     responses_df = pd.DataFrame(responses, columns=['Id', 'Response', 'User'])
-    file_path = f'/{user}_responses.csv'
+    file_name = f'{user}_responses.csv'
     try:
-        dbx.files_upload(responses_df.to_csv(index=False).encode(), file_path, mode=dropbox.files.WriteMode.overwrite)
+        file_list = drive.ListFile({'q': f"title='{file_name}'"}).GetList()
+        if file_list:
+            file = drive.CreateFile({'id': file_list[0]['id']})
+        else:
+            file = drive.CreateFile({'title': file_name})
+        file.SetContentString(responses_df.to_csv(index=False))
+        file.Upload()
     except Exception as e:
-        st.error(f"Error saving responses to Dropbox: {e}")
+        st.error(f"Error saving responses to Google Drive: {e}")
 
-# Function to save the application state to Dropbox
+# Function to save the application state to Google Drive
 def save_state(user):
     state = {
         'row_index': st.session_state.row_index,
         'responses': st.session_state.responses
     }
-    file_path = f'/{user}_state.json'
+    file_name = f'{user}_state.json'
     try:
-        dbx.files_upload(json.dumps(state).encode(), file_path, mode=dropbox.files.WriteMode.overwrite)
+        file_list = drive.ListFile({'q': f"title='{file_name}'"}).GetList()
+        if file_list:
+            file = drive.CreateFile({'id': file_list[0]['id']})
+        else:
+            file = drive.CreateFile({'title': file_name})
+        file.SetContentString(json.dumps(state))
+        file.Upload()
     except Exception as e:
-        st.error(f"Error saving state to Dropbox: {e}")
+        st.error(f"Error saving state to Google Drive: {e}")
 
-# Function to load the application state from Dropbox
+# Function to load the application state from Google Drive
 def load_state(user):
-    file_path = f'/{user}_state.json'
+    file_name = f'{user}_state.json'
     try:
-        _, res = dbx.files_download(file_path)
-        state = json.loads(res.content)
-        st.session_state.row_index = state['row_index']
-        st.session_state.responses = state['responses']
-    except dropbox.exceptions.ApiError:
-        st.session_state.row_index = 0
-        st.session_state.responses = []
+        file_list = drive.ListFile({'q': f"title='{file_name}'"}).GetList()
+        if file_list:
+            file_id = file_list[0]['id']
+            file_content = drive.CreateFile({'id': file_id}).GetContentString()
+            state = json.loads(file_content)
+            st.session_state.row_index = state['row_index']
+            st.session_state.responses = state['responses']
+        else:
+            st.session_state.row_index = 0
+            st.session_state.responses = []
     except Exception as e:
-        st.error(f"Error loading state from Dropbox: {e}")
+        st.error(f"Error loading state from Google Drive: {e}")
 
 # Sidebar with logo, file selection, and user selection
 st.sidebar.image('logo_Erwin.png', use_column_width=True)  # Update with your logo path
